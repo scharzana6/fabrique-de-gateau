@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fabrique de Gâteaux — Inside</title>
+
+  <style>
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      background:#ffccdd;
+      font-family: Arial, sans-serif;
+      text-align:center;
+      padding:20px;
+      box-sizing:border-box;
+    }
+
+    h1{
+      font-size:45px;
+      color:blue;
+      margin:0 0 18px 0;
+      font-family: "Edwardian Script ITC", "Apple Chancery", "Snell Roundhand", cursive;
+      font-weight: normal;
+    }
+
+    #count{
+      font-size:60px;
+      color:#8b4513;
+      font-weight:700;
+      margin:0 0 14px 0;
+    }
+
+    #bubbleContainer{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+      margin:0 0 22px 0;
+      max-width: 520px;
+    }
+
+    .bubble{
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      background:#004080;
+    }
+
+    .btn{
+      background:#8b4513;
+      color:white;
+      border:none;
+      padding:14px 26px;
+      font-size:22px;
+      border-radius:18px;
+      cursor:pointer;
+      font-family: "Edwardian Script ITC", "Apple Chancery", "Snell Roundhand", cursive;
+    }
+
+    .btn:hover{ filter:brightness(1.08); }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+
+<body>
+  <h1>fabrique de gâteau</h1>
+
+  <div id="count">0</div>
+  <div id="bubbleContainer"></div>
+
+  <button class="btn" id="doneBtn">Done</button>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBRY2uVNm9IMFzE6bGwH7cyBaP37_mjeh0",
+      authDomain: "fabriquedegateaux.firebaseapp.com",
+      databaseURL: "https://fabriquedegateaux-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "fabriquedegateaux",
+      storageBucket: "fabriquedegateaux.firebasestorage.app",
+      messagingSenderId: "709705066870",
+      appId: "1:709705066870:web:6deb6d6215ce60f83cf257"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const countRef = db.ref("nbTaches");
+
+    const countEl = document.getElementById("count");
+    const bubblesEl = document.getElementById("bubbleContainer");
+    const doneBtn = document.getElementById("doneBtn");
+
+    function renderBubbles(n){
+      bubblesEl.innerHTML = "";
+      for(let i=0;i<n;i++){
+        const b = document.createElement("div");
+        b.className = "bubble";
+        bubblesEl.appendChild(b);
+      }
+    }
+
+    countRef.on("value", snap => {
+      const val = snap.val() || 0;
+      countEl.textContent = val;
+      renderBubbles(val);
+    });
+
+    doneBtn.addEventListener("click", () => {
+      countRef.transaction(cur => Math.max((cur || 0) - 1, 0));
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fabrique de Gâteaux — Outside</title>
+
+  <style>
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      background:#ffccdd; /* fond rose */
+      font-family: Arial, sans-serif;
+      text-align:center;
+      padding:20px;
+      box-sizing:border-box;
+    }
+
+    h1{
+      font-size:45px;
+      color:blue;
+      margin:0 0 18px 0;
+      font-family: "Edwardian Script ITC", "Apple Chancery", "Snell Roundhand", cursive;
+      font-weight: normal;
+    }
+
+    #count{
+      font-size:60px;
+      color:#8b4513; /* brun */
+      font-weight:700;
+      margin:0 0 14px 0;
+    }
+
+    #bubbleContainer{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+      margin:0 0 22px 0;
+      max-width: 520px;
+    }
+
+    .bubble{
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      background:#004080; /* bleu foncé */
+    }
+
+    .btn{
+      background:#8b4513;
+      color:white;
+      border:none;
+      padding:14px 26px;
+      font-size:22px;
+      border-radius:18px; /* un peu arrondi */
+      cursor:pointer;
+      font-family: "Edwardian Script ITC", "Apple Chancery", "Snell Roundhand", cursive;
+    }
+
+    .btn:hover{ filter:brightness(1.08); }
+
+    /* MODAL */
+    #modalBackdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.45);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      box-sizing:border-box;
+    }
+
+    #modal{
+      width:min(520px, 92vw);
+      background:#fff;
+      border-radius:18px;
+      padding:18px;
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:12px;
+    }
+
+    textarea{
+      width:100%;
+      height:140px;
+      resize:none;
+      border-radius:14px;
+      padding:12px 14px;
+      box-sizing:border-box;
+      font-size:22px;
+      text-align:center;
+      font-family: "Edwardian Script ITC", "Apple Chancery", "Snell Roundhand", cursive;
+      border:1px solid #ddd;
+      outline:none;
+    }
+
+    .msg{
+      margin-top:12px;
+      font-size:28px;
+      color:green;
+      font-family: "Edwardian Script ITC", "Apple Chancery", "Snell Roundhand", cursive;
+      display:none;
+    }
+
+    /* Petite “fenêtre gâteau” (pas une alerte qui disparaît) */
+    #errorCake{
+      display:none;
+      margin-top:10px;
+      padding:12px 16px;
+      border-radius:999px;
+      background:#004080;
+      color:#fff;
+      font-size:16px;
+      max-width: 520px;
+    }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+
+<body>
+  <h1>fabrique de gâteau</h1>
+
+  <div id="count">0</div>
+  <div id="bubbleContainer"></div>
+
+  <button class="btn" id="orderBtn">Commander un gâteau</button>
+
+  <div id="errorCake">You have to write a Poem before ordering a cake</div>
+  <div class="msg" id="thanks">Merci pour votre commande !</div>
+
+  <!-- MODAL -->
+  <div id="modalBackdrop">
+    <div id="modal">
+      <textarea id="poem" placeholder="Écris un poème"></textarea>
+      <button class="btn" id="okBtn">OK</button>
+    </div>
+  </div>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBRY2uVNm9IMFzE6bGwH7cyBaP37_mjeh0",
+      authDomain: "fabriquedegateaux.firebaseapp.com",
+      databaseURL: "https://fabriquedegateaux-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "fabriquedegateaux",
+      storageBucket: "fabriquedegateaux.firebasestorage.app",
+      messagingSenderId: "709705066870",
+      appId: "1:709705066870:web:6deb6d6215ce60f83cf257"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const countRef = db.ref("nbTaches");
+    const messagesRef = db.ref("messages");
+
+    const countEl = document.getElementById("count");
+    const bubblesEl = document.getElementById("bubbleContainer");
+    const orderBtn = document.getElementById("orderBtn");
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const poemEl = document.getElementById("poem");
+    const okBtn = document.getElementById("okBtn");
+    const errorCake = document.getElementById("errorCake");
+    const thanks = document.getElementById("thanks");
+
+    function renderBubbles(n){
+      bubblesEl.innerHTML = "";
+      for(let i=0;i<n;i++){
+        const b = document.createElement("div");
+        b.className = "bubble";
+        bubblesEl.appendChild(b);
+      }
+    }
+
+    countRef.on("value", snap => {
+      const val = snap.val() || 0;
+      countEl.textContent = val;
+      renderBubbles(val);
+    });
+
+    // Ouvrir la fenêtre texte
+    orderBtn.addEventListener("click", () => {
+      thanks.style.display = "none";
+      errorCake.style.display = "none";
+      poemEl.value = "";
+      modalBackdrop.style.display = "flex";
+      setTimeout(()=>poemEl.focus(), 50);
+    });
+
+    // Valider la commande
+    okBtn.addEventListener("click", () => {
+      const poem = poemEl.value.trim();
+
+      if(!poem){
+        // fenêtre “gâteau” (message fixe)
+        errorCake.style.display = "inline-block";
+        return;
+      }
+
+      errorCake.style.display = "none";
+
+      // Enregistrer le texte
+      messagesRef.push().set({
+        text: poem,
+        timestamp: Date.now()
+      });
+
+      // Ajouter 1 gâteau
+      countRef.transaction(cur => (cur || 0) + 1);
+
+      modalBackdrop.style.display = "none";
+      thanks.style.display = "block";
+    });
+
+    // Cliquer en dehors ferme la fenêtre (optionnel)
+    modalBackdrop.addEventListener("click", (e) => {
+      if(e.target === modalBackdrop){
+        modalBackdrop.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
