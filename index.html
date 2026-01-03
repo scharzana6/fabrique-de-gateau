@@ -3,15 +3,310 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fabrique de gâteau</title>
+  <title>Fabrique de Gâteaux — Outside</title>
+
   <style>
-    body{font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#ffccdd}
-    a{display:inline-block;margin:12px;padding:14px 22px;border-radius:14px;background:#8b4513;color:white;text-decoration:none;font-size:20px}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      background:#ffccdd;
+      font-family: Arial, sans-serif;
+      text-align:center;
+      padding:20px;
+      box-sizing:border-box;
+    }
+
+    h1{
+      font-size:45px;
+      color:blue;
+      margin:0 0 18px 0;
+      font-family:"Edwardian Script ITC","Apple Chancery","Snell Roundhand",cursive;
+      font-weight: normal;
+    }
+
+    #count{
+      font-size:60px;
+      color:#8b4513;
+      font-weight:700;
+      margin:0 0 14px 0;
+    }
+
+    #bubbleContainer{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+      margin:0 0 22px 0;
+      max-width:520px;
+    }
+
+    .bubble{
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      background:#004080;
+    }
+
+    .btn{
+      background:#8b4513;
+      color:white;
+      border:none;
+      padding:14px 22px;
+      font-size:22px;
+      border-radius:18px;
+      cursor:pointer;
+      font-family:"Edwardian Script ITC","Apple Chancery","Snell Roundhand",cursive;
+    }
+
+    .btn:hover{ filter:brightness(1.08); }
+
+    /* Boutons tailles */
+    #sizeButtons{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-top:6px;
+    }
+
+    /* MODALE */
+    #modalBackdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.45);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      box-sizing:border-box;
+    }
+
+    #modal{
+      width:min(520px,92vw);
+      background:#fff;
+      border-radius:18px;
+      padding:18px;
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:12px;
+      position:relative;
+    }
+
+    /* Croix */
+    #closeModal{
+      position:absolute;
+      top:12px;
+      right:14px;
+      background:none;
+      border:none;
+      font-size:28px;
+      cursor:pointer;
+      color:#004080;
+    }
+
+    textarea{
+      width:100%;
+      height:140px;
+      resize:none;
+      border-radius:14px;
+      padding:12px 14px;
+      font-size:22px;
+      text-align:center;
+      font-family:"Edwardian Script ITC","Apple Chancery","Snell Roundhand",cursive;
+      border:1px solid #ddd;
+      outline:none;
+    }
+
+    #modalError{
+      display:none;
+      width:100%;
+      border-radius:16px;
+      padding:12px 14px;
+      background:#004080;
+      color:#fff;
+      font-size:26px;
+      font-family:"Edwardian Script ITC","Apple Chancery","Snell Roundhand",cursive;
+      line-height:1.15;
+    }
+
+    #sizeHint{
+      width:100%;
+      font-size:18px;
+      color:#004080;
+      line-height:1.2;
+    }
+
+    /* Toast */
+    #thanksToast{
+      position:fixed;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      background:#fff;
+      border-radius:22px;
+      padding:18px 26px;
+      display:none;
+      z-index:9999;
+      border:3px solid #8b4513;
+      color:green;
+      font-size:42px;
+      font-family:"Edwardian Script ITC","Apple Chancery","Snell Roundhand",cursive;
+      box-shadow:0 10px 30px rgba(0,0,0,0.22);
+    }
   </style>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
+
 <body>
-  <h1>Fabrique de gâteau</h1>
-  <a href="./outside.html">Outside (commander)</a>
-  <a href="./inside.html">Inside (done)</a>
+  <h1>fabrique de gâteau</h1>
+
+  <div id="count">0</div>
+  <div id="bubbleContainer"></div>
+
+  <!-- Tailles -->
+  <div id="sizeButtons">
+    <button class="btn sizeBtn" data-size="XS">Gâteau XS</button>
+    <button class="btn sizeBtn" data-size="S">Gâteau S</button>
+    <button class="btn sizeBtn" data-size="M">Gâteau M</button>
+    <button class="btn sizeBtn" data-size="L">Gâteau L</button>
+    <button class="btn sizeBtn" data-size="XL">Gâteau XL</button>
+  </div>
+
+  <div id="thanksToast">Merci pour votre commande&nbsp;!</div>
+
+  <div id="modalBackdrop">
+    <div id="modal">
+      <button id="closeModal">✕</button>
+
+      <div id="modalError"></div>
+      <div id="sizeHint"></div>
+
+      <textarea id="poem"></textarea>
+      <button class="btn" id="okBtn">OK</button>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBRY2uVNm9IMFzE6bGwH7cyBaP37_mjeh0",
+      authDomain: "fabriquedegateaux.firebaseapp.com",
+      databaseURL: "https://fabriquedegateaux-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "fabriquedegateaux",
+      storageBucket: "fabriquedegateaux.firebasestorage.app",
+      messagingSenderId: "709705066870",
+      appId: "1:709705066870:web:6deb6d6215ce60f83cf257"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const countRef = db.ref("nbTaches");
+    const messagesRef = db.ref("messages");
+
+    const countEl = document.getElementById("count");
+    const bubblesEl = document.getElementById("bubbleContainer");
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const poemEl = document.getElementById("poem");
+    const modalError = document.getElementById("modalError");
+    const thanksToast = document.getElementById("thanksToast");
+    const sizeHint = document.getElementById("sizeHint");
+
+    const MIN_CHARS = {
+      XS: 15,
+      S: 30,
+      M: 80,
+      L: 160,
+      XL: 300
+    };
+
+    let selectedSize = "S";
+    let thanksTimer = null;
+
+    function renderBubbles(n){
+      bubblesEl.innerHTML="";
+      for(let i=0;i<n;i++){
+        const b=document.createElement("div");
+        b.className="bubble";
+        bubblesEl.appendChild(b);
+      }
+    }
+
+    countRef.on("value", snap=>{
+      const val=snap.val()||0;
+      countEl.textContent=val;
+      renderBubbles(val);
+    });
+
+    function openModal(size){
+      selectedSize = size;
+      modalError.style.display="none";
+      const min = MIN_CHARS[size];
+      sizeHint.textContent = `Taille ${size} : poème d’au moins ${min} caractères.`;
+      poemEl.value="";
+      poemEl.placeholder = `Écrivez un poème (min. ${min} caractères)…`;
+      modalBackdrop.style.display="flex";
+      setTimeout(()=>poemEl.focus(),50);
+    }
+
+    function closeModal(){
+      modalBackdrop.style.display="none";
+      modalError.style.display="none";
+    }
+
+    function showThanks(){
+      if(thanksTimer) clearTimeout(thanksTimer);
+      thanksToast.style.display="flex";
+      thanksTimer=setTimeout(()=>thanksToast.style.display="none",1600);
+    }
+
+    document.querySelectorAll(".sizeBtn").forEach(btn=>{
+      btn.onclick=()=>openModal(btn.dataset.size);
+    });
+
+    document.getElementById("closeModal").onclick=closeModal;
+    modalBackdrop.onclick=e=>{ if(e.target===modalBackdrop) closeModal(); };
+
+    document.getElementById("okBtn").onclick=()=>{
+      const poem = poemEl.value.trim();
+      const min = MIN_CHARS[selectedSize];
+
+      if(!poem){
+        modalError.textContent="Vous devez écrire un poème pour commander un gâteau.";
+        modalError.style.display="block";
+        return;
+      }
+
+      if(poem.length < min){
+        modalError.textContent=`Pour un gâteau ${selectedSize}, le poème doit faire au moins ${min} caractères.`;
+        modalError.style.display="block";
+        return;
+      }
+
+      messagesRef.push().set({
+        text: poem,
+        size: selectedSize,
+        timestamp: Date.now()
+      });
+
+      countRef.transaction(v=>(v||0)+1);
+
+      closeModal();
+      showThanks();
+    };
+
+    document.addEventListener("keydown",e=>{
+      if(e.key==="Escape" && modalBackdrop.style.display==="flex"){
+        closeModal();
+      }
+    });
+  </script>
 </body>
 </html>
