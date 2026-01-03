@@ -310,3 +310,20 @@
   </script>
 </body>
 </html>
+// --- ACCÈS SECRET À INSIDE (appui long sur le titre) ---
+let secretTimer = null;
+const titleEl = document.querySelector("h1");
+
+titleEl.addEventListener("pointerdown", () => {
+  secretTimer = setTimeout(() => {
+    window.location.href = "inside.html";
+  }, 1500); // 1,5 seconde
+});
+
+["pointerup","pointerleave","pointercancel"].forEach(ev => {
+  titleEl.addEventListener(ev, () => {
+    if(secretTimer) clearTimeout(secretTimer);
+    secretTimer = null;
+  });
+});
+
