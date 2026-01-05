@@ -196,6 +196,25 @@
 
     let thanksTimer = null;
 
+    // --- TAILLE INVISIBLE (choisie en interne) ---
+    // Option A (simple): fixe une taille par défaut
+    const DEFAULT_SIZE = "M";
+
+    // Option B (si tu veux piloter sans UI): via URL ?size=XL
+    function getHiddenSize(){
+      const s = new URLSearchParams(window.location.search).get("size");
+      const allowed = new Set(["XS","S","M","L","XL"]);
+      return allowed.has(s) ? s : DEFAULT_SIZE;
+    }
+
+    const MIN_CHARS = {
+      XS: 15,
+      S: 30,
+      M: 80,
+      L: 160,
+      XL: 300
+    };
+
     function renderBubbles(n){
       bubblesEl.innerHTML="";
       for(let i=0;i<n;i++){
@@ -231,12 +250,6 @@
       thanksTimer=setTimeout(()=>thanksToast.style.display="none",1600);
     }
 
-    function countWords(text){
-      const t = text.trim();
-      if(!t) return 0;
-      return t.split(/\s+/).filter(Boolean).length;
-    }
-    
     document.getElementById("orderBtn").onclick=openModal;
     document.getElementById("closeModal").onclick=closeModal;
     modalBackdrop.onclick=e=>{ if(e.target===modalBackdrop) closeModal(); };
@@ -250,13 +263,20 @@
         return;
       }
 
-      const words = countWords(poem);
-      const size = sizeFromWords(words);
+      // Taille invisible (jamais affichée)
+      const size = getHiddenSize();
+
+      // (Optionnel) contrainte de longueur, mais sans jamais révéler la taille
+      const min = MIN_CHARS[size] || 0;
+      if(poem.length < min){
+        modalError.textContent="Le poème est trop court.";
+        modalError.style.display="block";
+        return;
+      }
 
       messagesRef.push().set({
         text: poem,
         size: size,
-        words: words,
         timestamp: Date.now()
       });
 
@@ -287,12 +307,10 @@
       }
 
       titleEl.addEventListener("click", () => {
-        // si la modale est ouverte, on ne déclenche pas
         if(modalBackdrop && modalBackdrop.style.display === "flex") return;
 
         taps += 1;
 
-        // 2 secondes pour faire 5 taps
         if(taps === 1){
           timer = setTimeout(reset, 2000);
         }
