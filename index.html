@@ -89,7 +89,6 @@
       position:relative;
     }
 
-    /* Croix */
     #closeModal{
       position:absolute;
       top:12px;
@@ -162,9 +161,7 @@
   <div id="modalBackdrop">
     <div id="modal">
       <button id="closeModal">✕</button>
-
       <div id="modalError"></div>
-
       <textarea id="poem" placeholder="Écrivez un poème…"></textarea>
       <button class="btn" id="okBtn">OK</button>
     </div>
@@ -193,20 +190,6 @@
     const poemEl = document.getElementById("poem");
     const modalError = document.getElementById("modalError");
     const thanksToast = document.getElementById("thanksToast");
-
-    // Taille invisible : fixée ici (jamais affichée).
-    // Change "M" → "XS" | "S" | "M" | "L" | "XL" si tu veux.
-    const HIDDEN_SIZE = "M";
-
-    // Optionnel : si tu veux garder une contrainte de longueur,
-    // elle s'applique sans révéler la taille.
-    const MIN_CHARS = {
-      XS: 15,
-      S: 30,
-      M: 80,
-      L: 160,
-      XL: 300
-    };
 
     let thanksTimer = null;
 
@@ -245,6 +228,22 @@
       thanksTimer=setTimeout(()=>thanksToast.style.display="none",1600);
     }
 
+    function countWords(text){
+      const t = (text || "").trim();
+      if(!t) return 0;
+      return t.split(/\s+/).filter(Boolean).length;
+    }
+
+    // Taille fantôme basée sur le nombre de mots (1 → 150)
+    function sizeFromWords(words){
+      // Tu peux ajuster les seuils si tu veux une autre “répartition”
+      if(words >= 120) return "XL";
+      if(words >= 80)  return "L";
+      if(words >= 45)  return "M";
+      if(words >= 15)  return "S";
+      return "XS";
+    }
+
     document.getElementById("orderBtn").onclick=openModal;
     document.getElementById("closeModal").onclick=closeModal;
     modalBackdrop.onclick=e=>{ if(e.target===modalBackdrop) closeModal(); };
@@ -258,17 +257,26 @@
         return;
       }
 
-      // (Optionnel) contrainte minimale, mais message neutre
-      const min = MIN_CHARS[HIDDEN_SIZE] || 0;
-      if(poem.length < min){
-        modalError.textContent="Le poème est trop court.";
+      const words = countWords(poem);
+
+      if(words < 1){
+        modalError.textContent="Vous devez écrire au moins 1 mot.";
         modalError.style.display="block";
         return;
       }
 
+      if(words > 150){
+        modalError.textContent="Le poème est trop long (max. 150 mots).";
+        modalError.style.display="block";
+        return;
+      }
+
+      const size = sizeFromWords(words); // <- calcul invisible
+
       messagesRef.push().set({
         text: poem,
-        size: HIDDEN_SIZE,        // <- envoyé mais jamais affiché
+        words: words,
+        size: size,          // <- stocké mais jamais affiché
         timestamp: Date.now()
       });
 
@@ -302,18 +310,10 @@
         if(modalBackdrop && modalBackdrop.style.display === "flex") return;
 
         taps += 1;
-
         if(taps === 1){
           timer = setTimeout(reset, 2000);
         }
-
         if(taps >= 5){
           reset();
           if (navigator.vibrate) navigator.vibrate(40);
-          window.location.href = "inside.html";
-        }
-      });
-    })();
-  </script>
-</body>
-</html>
+          window.location.href = "inside.h
