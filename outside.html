@@ -89,7 +89,6 @@
       position:relative;
     }
 
-    /* Croix */
     #closeModal{
       position:absolute;
       top:12px;
@@ -126,7 +125,6 @@
       line-height:1.15;
     }
 
-    /* Toast */
     #thanksToast{
       position:fixed;
       left:50%;
@@ -162,9 +160,7 @@
   <div id="modalBackdrop">
     <div id="modal">
       <button id="closeModal">✕</button>
-
       <div id="modalError"></div>
-
       <textarea id="poem" placeholder="Écrivez un poème…"></textarea>
       <button class="btn" id="okBtn">OK</button>
     </div>
@@ -194,18 +190,11 @@
     const modalError = document.getElementById("modalError");
     const thanksToast = document.getElementById("thanksToast");
 
+    // TAILLE INVISIBLE : fixée ici (personne ne la voit)
+    // Tu peux changer "M" → "XS/S/M/L/XL" selon ce que tu veux.
+    const HIDDEN_SIZE = "M";
+
     let thanksTimer = null;
-
-    // --- TAILLE INVISIBLE (choisie en interne) ---
-    // Option A (simple): fixe une taille par défaut
-    const DEFAULT_SIZE = "M";
-
-    // Option B (si tu veux piloter sans UI): via URL ?size=XL
-    function getHiddenSize(){
-      const s = new URLSearchParams(window.location.search).get("size");
-      const allowed = new Set(["XS","S","M","L","XL"]);
-      return allowed.has(s) ? s : DEFAULT_SIZE;
-    }
 
     function renderBubbles(n){
       bubblesEl.innerHTML="";
@@ -255,20 +244,9 @@
         return;
       }
 
-      // Taille invisible (jamais affichée)
-      const size = getHiddenSize();
-
-      // (Optionnel) contrainte de longueur, mais sans jamais révéler la taille
-      const min = MIN_CHARS[size] || 0;
-      if(poem.length < min){
-        modalError.textContent="Le poème est trop court.";
-        modalError.style.display="block";
-        return;
-      }
-
       messagesRef.push().set({
         text: poem,
-        size: size,
+        size: HIDDEN_SIZE,     // <- envoyé mais jamais affiché
         timestamp: Date.now()
       });
 
@@ -302,11 +280,9 @@
         if(modalBackdrop && modalBackdrop.style.display === "flex") return;
 
         taps += 1;
-
         if(taps === 1){
           timer = setTimeout(reset, 2000);
         }
-
         if(taps >= 5){
           reset();
           if (navigator.vibrate) navigator.vibrate(40);
