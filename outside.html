@@ -64,15 +64,6 @@
 
     .btn:hover{ filter:brightness(1.08); }
 
-    /* Boutons tailles */
-    #sizeButtons{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:center;
-      margin-top:6px;
-    }
-
     /* MODALE */
     #modalBackdrop{
       position:fixed;
@@ -135,22 +126,6 @@
       line-height:1.15;
     }
 
-    #sizeHint{
-      width:100%;
-      font-size:18px;
-      color:#004080;
-      line-height:1.2;
-    }
-
-    /* Compteur de mots */
-    #wordCounter{
-      width:100%;
-      font-size:18px;
-      color:#8b4513; /* brun */
-      font-weight:700;
-      line-height:1.2;
-    }
-
     /* Toast */
     #thanksToast{
       position:fixed;
@@ -180,14 +155,7 @@
   <div id="count">0</div>
   <div id="bubbleContainer"></div>
 
-  <!-- Tailles -->
-  <div id="sizeButtons">
-    <button class="btn sizeBtn" data-size="XS">Gâteau XS</button>
-    <button class="btn sizeBtn" data-size="S">Gâteau S</button>
-    <button class="btn sizeBtn" data-size="M">Gâteau M</button>
-    <button class="btn sizeBtn" data-size="L">Gâteau L</button>
-    <button class="btn sizeBtn" data-size="XL">Gâteau XL</button>
-  </div>
+  <button class="btn" id="orderBtn">Commander un gâteau</button>
 
   <div id="thanksToast">Merci pour votre commande&nbsp;!</div>
 
@@ -196,10 +164,8 @@
       <button id="closeModal">✕</button>
 
       <div id="modalError"></div>
-      <div id="sizeHint"></div>
-      <div id="wordCounter"></div>
 
-      <textarea id="poem"></textarea>
+      <textarea id="poem" placeholder="Écrivez un poème…"></textarea>
       <button class="btn" id="okBtn">OK</button>
     </div>
   </div>
@@ -227,19 +193,7 @@
     const poemEl = document.getElementById("poem");
     const modalError = document.getElementById("modalError");
     const thanksToast = document.getElementById("thanksToast");
-    const sizeHint = document.getElementById("sizeHint");
-    const wordCounter = document.getElementById("wordCounter");
 
-    // Minimum en MOTS (ajuste librement)
-    const MIN_WORDS = {
-      XS: 3,
-      S: 7,
-      M: 20,
-      L: 40,
-      XL: 70
-    };
-
-    let selectedSize = "S";
     let thanksTimer = null;
 
     function renderBubbles(n){
@@ -257,33 +211,11 @@
       renderBubbles(val);
     });
 
-    function countWords(text){
-      const t = text.trim();
-      if(!t) return 0;
-      return t.split(/\s+/).filter(Boolean).length;
-    }
-
-    function updateWordCounter(){
-      const min = MIN_WORDS[selectedSize];
-      const words = countWords(poemEl.value);
-      wordCounter.textContent = `${words} sur ${min} mots`;
-      wordCounter.style.color = (words >= min) ? "green" : "#8b4513";
-    }
-
-    function openModal(size){
-      selectedSize = size;
+    function openModal(){
       modalError.style.display="none";
-
-      const min = MIN_WORDS[size];
-      sizeHint.textContent = `Taille ${size} : poème d’au moins ${min} mots.`;
-
       poemEl.value="";
-      poemEl.placeholder = `Écrivez un poème (min. ${min} mots)…`;
-
       modalBackdrop.style.display="flex";
       setTimeout(()=>poemEl.focus(),50);
-
-      updateWordCounter();
     }
 
     function closeModal(){
@@ -297,37 +229,42 @@
       thanksTimer=setTimeout(()=>thanksToast.style.display="none",1600);
     }
 
-    document.querySelectorAll(".sizeBtn").forEach(btn=>{
-      btn.onclick=()=>openModal(btn.dataset.size);
-    });
+    function countWords(text){
+      const t = text.trim();
+      if(!t) return 0;
+      return t.split(/\s+/).filter(Boolean).length;
+    }
 
+    // Classification invisible (selon nb de mots)
+    function sizeFromWords(words){
+      if(words >= 70) return "XL";
+      if(words >= 40) return "L";
+      if(words >= 20) return "M";
+      if(words >= 7)  return "S";
+      return "XS";
+    }
+
+    document.getElementById("orderBtn").onclick=openModal;
     document.getElementById("closeModal").onclick=closeModal;
     modalBackdrop.onclick=e=>{ if(e.target===modalBackdrop) closeModal(); };
 
-    // Mise à jour en direct pendant l'écriture
-    poemEl.addEventListener("input", updateWordCounter);
-
     document.getElementById("okBtn").onclick=()=>{
       const poem = poemEl.value.trim();
-      const min = MIN_WORDS[selectedSize];
-      const words = countWords(poem);
 
+      // Poème obligatoire (sans révéler de seuil)
       if(!poem){
         modalError.textContent="Vous devez écrire un poème pour commander un gâteau.";
         modalError.style.display="block";
         return;
       }
 
-      if(words < min){
-        modalError.textContent=`Pour un gâteau ${selectedSize}, le poème doit faire au moins ${min} mots.`;
-        modalError.style.display="block";
-        return;
-      }
+      const words = countWords(poem);
+      const size = sizeFromWords(words);
 
       messagesRef.push().set({
         text: poem,
-        size: selectedSize,
-        words: words,
+        size: size,     // XS / S / M / L / XL (invisible pour le visiteur)
+        words: words,   // utile pour toi, invisible
         timestamp: Date.now()
       });
 
