@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -101,6 +102,39 @@
       max-width:520px;
       line-height:1.25;
     }
+
+    /* Poème + taille (inside seulement) */
+    #poemBox{
+      margin-top:16px;
+      background:#fff;
+      border-radius:18px;
+      padding:14px 16px;
+      border:2px solid rgba(0,0,0,0.08);
+      width:min(560px, 95vw);
+      box-sizing:border-box;
+      display:flex;
+      gap:16px;
+      align-items:flex-start;
+    }
+
+    #poemSize{
+      font-size:46px;
+      color:#004080;
+      font-family:"Edwardian Script ITC","Apple Chancery","Snell Roundhand",cursive;
+      line-height:1;
+      min-width:70px;
+      text-align:center;
+    }
+
+    #poemText{
+      margin:0;
+      font-size:18px;
+      color:#333;
+      white-space:pre-wrap;
+      word-break:break-word;
+      flex:1;
+      text-align:left;
+    }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -116,6 +150,12 @@
   <button class="btn" id="doneBtn">DONE</button>
 
   <div id="hint">Appuyez sur DONE quand un gâteau est terminé.</div>
+
+  <!-- Affichage inside : taille à côté du poème -->
+  <div id="poemBox">
+    <div id="poemSize">—</div>
+    <pre id="poemText"></pre>
+  </div>
 
   <div id="toast">Gâteau réalisé&nbsp;!</div>
 
@@ -134,13 +174,18 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Ici on garde ton compteur existant
+    // compteur (comme avant)
     const countRef = db.ref("nbTaches");
+    // messages (pour afficher poème + taille)
+    const messagesRef = db.ref("messages");
 
     const countEl = document.getElementById("count");
     const bubblesEl = document.getElementById("bubbleContainer");
     const doneBtn = document.getElementById("doneBtn");
     const toast = document.getElementById("toast");
+
+    const poemText = document.getElementById("poemText");
+    const poemSize = document.getElementById("poemSize");
 
     let toastTimer = null;
     let currentCount = 0;
@@ -169,6 +214,20 @@
       doneBtn.disabled = busy || currentCount <= 0;
     }
 
+    function countWords(text){
+      const t = (text || "").trim();
+      if(!t) return 0;
+      return t.split(/\s+/).filter(Boolean).length;
+    }
+
+    function sizeFromWords(words){
+      if(words >= 70) return "XL";
+      if(words >= 40) return "L";
+      if(words >= 20) return "M";
+      if(words >= 7)  return "S";
+      return "XS";
+    }
+
     // Live count + bulles
     countRef.on("value", snap => {
       const val = snap.val();
@@ -178,13 +237,36 @@
       countEl.textContent = currentCount;
       renderBubbles(currentCount);
 
-      // active/désactive le bouton selon le nombre
       if(!isWorking){
         doneBtn.disabled = currentCount <= 0;
       }
     });
 
-    // DONE = enlève 1 gâteau à faire
+    // Afficher le poème + la taille (FIFO: le plus ancien)
+    messagesRef
+      .orderByChild("timestamp")
+      .limitToFirst(1)
+      .on("value", snap => {
+        const data = snap.val();
+
+        if(!data){
+          poemText.textContent = "";
+          poemSize.textContent = "—";
+          return;
+        }
+
+        const key = Object.keys(data)[0];
+        const msg = data[key] || {};
+        const text = msg.text || "";
+
+        const words = (typeof msg.words === "number") ? msg.words : countWords(text);
+        const size = sizeFromWords(words);
+
+        poemText.textContent = text;
+        poemSize.textContent = size;
+      });
+
+    // DONE = enlève 1 gâteau à faire (comme avant)
     doneBtn.addEventListener("click", () => {
       if(isWorking) return;
       setBusy(true);
@@ -206,7 +288,7 @@
       });
     });
 
-    // Petit bonus : barre espace = DONE
+    // barre espace = DONE
     document.addEventListener("keydown", (e) => {
       if(e.code === "Space"){
         e.preventDefault();
@@ -216,3 +298,4 @@
   </script>
 </body>
 </html>
+```
