@@ -174,4 +174,145 @@
     const firebaseConfig = {
       apiKey: "AIzaSyBRY2uVNm9IMFzE6bGwH7cyBaP37_mjeh0",
       authDomain: "fabriquedegateaux.firebaseapp.com",
-      databaseURL: "htt
+      databaseURL: "https://fabriquedegateaux-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "fabriquedegateaux",
+      storageBucket: "fabriquedegateaux.firebasestorage.app",
+      messagingSenderId: "709705066870",
+      appId: "1:709705066870:web:6deb6d6215ce60f83cf257"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const countRef = db.ref("nbTaches");
+    const messagesRef = db.ref("messages");
+
+    const countEl = document.getElementById("count");
+    const bubblesEl = document.getElementById("bubbleContainer");
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const poemEl = document.getElementById("poem");
+    const modalError = document.getElementById("modalError");
+    const thanksToast = document.getElementById("thanksToast");
+
+    let thanksTimer = null;
+
+    function renderBubbles(n){
+      bubblesEl.innerHTML="";
+      for(let i=0;i<n;i++){
+        const b=document.createElement("div");
+        b.className="bubble";
+        bubblesEl.appendChild(b);
+      }
+    }
+
+    countRef.on("value", snap=>{
+      const val=snap.val()||0;
+      countEl.textContent=val;
+      renderBubbles(val);
+    });
+
+    function openModal(){
+      modalError.style.display="none";
+      modalError.textContent="";
+      poemEl.value="";
+      modalBackdrop.style.display="flex";
+      setTimeout(()=>poemEl.focus(),50);
+    }
+
+    function closeModal(){
+      modalBackdrop.style.display="none";
+      modalError.style.display="none";
+      modalError.textContent="";
+    }
+
+    function showThanks(){
+      if(thanksTimer) clearTimeout(thanksTimer);
+      thanksToast.style.display="flex";
+      thanksTimer=setTimeout(()=>thanksToast.style.display="none",1600);
+    }
+
+    function countWords(text){
+      const t = text.trim();
+      if(!t) return 0;
+      return t.split(/\s+/).filter(Boolean).length;
+    }
+
+    // Classification invisible (selon nb de mots)
+    function sizeFromWords(words){
+      if(words >= 70) return "XL";
+      if(words >= 40) return "L";
+      if(words >= 20) return "M";
+      if(words >= 7)  return "S";
+      return "XS";
+    }
+
+    document.getElementById("orderBtn").onclick=openModal;
+    document.getElementById("closeModal").onclick=closeModal;
+    modalBackdrop.onclick=e=>{ if(e.target===modalBackdrop) closeModal(); };
+
+    document.getElementById("okBtn").onclick=()=>{
+      const poem = poemEl.value.trim();
+
+      if(!poem){
+        modalError.textContent="Vous devez écrire un poème pour commander un gâteau.";
+        modalError.style.display="block";
+        return;
+      }
+
+      const words = countWords(poem);
+      const size = sizeFromWords(words);
+
+      messagesRef.push().set({
+        text: poem,
+        size: size,
+        words: words,
+        timestamp: Date.now()
+      });
+
+      countRef.transaction(v=>(v||0)+1);
+
+      closeModal();
+      showThanks();
+    };
+
+    document.addEventListener("keydown",e=>{
+      if(e.key==="Escape" && modalBackdrop.style.display==="flex"){
+        closeModal();
+      }
+    });
+
+    // --- ACCÈS SECRET À INSIDE (5 taps rapides sur le titre) ---
+    (() => {
+      const titleEl = document.querySelector("h1");
+      if(!titleEl) return;
+
+      let taps = 0;
+      let timer = null;
+
+      function reset(){
+        taps = 0;
+        if(timer) clearTimeout(timer);
+        timer = null;
+      }
+
+      titleEl.addEventListener("click", () => {
+        // si la modale est ouverte, on ne déclenche pas
+        if(modalBackdrop && modalBackdrop.style.display === "flex") return;
+
+        taps += 1;
+
+        // 2 secondes pour faire 5 taps
+        if(taps === 1){
+          timer = setTimeout(reset, 2000);
+        }
+
+        if(taps >= 5){
+          reset();
+          if (navigator.vibrate) navigator.vibrate(40);
+          window.location.href = "inside.html";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
