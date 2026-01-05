@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -228,15 +229,22 @@
       thanksTimer=setTimeout(()=>thanksToast.style.display="none",1600);
     }
 
+    // Comptage de mots robuste (retours ligne + espaces insécables)
     function countWords(text){
-      const t = (text || "").trim();
-      if(!t) return 0;
-      return t.split(/\s+/).filter(Boolean).length;
+      if(!text) return 0;
+
+      const normalized = text
+        .replace(/\u00A0/g, " ")   // espaces insécables
+        .replace(/\n/g, " ")       // retours ligne
+        .replace(/\s+/g, " ")      // espaces multiples
+        .trim();
+
+      if(!normalized) return 0;
+      return normalized.split(" ").length;
     }
 
     // Taille fantôme basée sur le nombre de mots (1 → 150)
     function sizeFromWords(words){
-      // Tu peux ajuster les seuils si tu veux une autre “répartition”
       if(words >= 120) return "XL";
       if(words >= 80)  return "L";
       if(words >= 45)  return "M";
@@ -249,7 +257,8 @@
     modalBackdrop.onclick=e=>{ if(e.target===modalBackdrop) closeModal(); };
 
     document.getElementById("okBtn").onclick=()=>{
-      const poem = poemEl.value.trim();
+      // Normalise un peu (espaces insécables), mais on garde les retours à la ligne dans le texte stocké
+      const poem = (poemEl.value || "").replace(/\u00A0/g, " ").trim();
 
       if(!poem){
         modalError.textContent="Vous devez écrire un poème pour commander un gâteau.";
@@ -259,6 +268,7 @@
 
       const words = countWords(poem);
 
+      // limites demandées : min 1 mot, max 150 mots
       if(words < 1){
         modalError.textContent="Vous devez écrire au moins 1 mot.";
         modalError.style.display="block";
@@ -316,4 +326,11 @@
         if(taps >= 5){
           reset();
           if (navigator.vibrate) navigator.vibrate(40);
-          window.location.href = "inside.h
+          window.location.href = "inside.html";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+```
