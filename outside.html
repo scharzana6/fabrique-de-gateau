@@ -236,16 +236,7 @@
       if(!t) return 0;
       return t.split(/\s+/).filter(Boolean).length;
     }
-
-    // Classification invisible (selon nb de mots)
-    function sizeFromWords(words){
-      if(words >= 70) return "XL";
-      if(words >= 40) return "L";
-      if(words >= 20) return "M";
-      if(words >= 7)  return "S";
-      return "XS";
-    }
-
+    
     document.getElementById("orderBtn").onclick=openModal;
     document.getElementById("closeModal").onclick=closeModal;
     modalBackdrop.onclick=e=>{ if(e.target===modalBackdrop) closeModal(); };
