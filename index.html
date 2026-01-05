@@ -64,15 +64,6 @@
 
     .btn:hover{ filter:brightness(1.08); }
 
-    /* Boutons tailles */
-    #sizeButtons{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:center;
-      margin-top:6px;
-    }
-
     /* MODALE */
     #modalBackdrop{
       position:fixed;
@@ -135,13 +126,6 @@
       line-height:1.15;
     }
 
-    #sizeHint{
-      width:100%;
-      font-size:18px;
-      color:#004080;
-      line-height:1.2;
-    }
-
     /* Toast */
     #thanksToast{
       position:fixed;
@@ -171,14 +155,7 @@
   <div id="count">0</div>
   <div id="bubbleContainer"></div>
 
-  <!-- Tailles -->
-  <div id="sizeButtons">
-    <button class="btn sizeBtn" data-size="XS">Gâteau XS</button>
-    <button class="btn sizeBtn" data-size="S">Gâteau S</button>
-    <button class="btn sizeBtn" data-size="M">Gâteau M</button>
-    <button class="btn sizeBtn" data-size="L">Gâteau L</button>
-    <button class="btn sizeBtn" data-size="XL">Gâteau XL</button>
-  </div>
+  <button class="btn" id="orderBtn">Commander un gâteau</button>
 
   <div id="thanksToast">Merci pour votre commande&nbsp;!</div>
 
@@ -187,9 +164,8 @@
       <button id="closeModal">✕</button>
 
       <div id="modalError"></div>
-      <div id="sizeHint"></div>
 
-      <textarea id="poem"></textarea>
+      <textarea id="poem" placeholder="Écrivez un poème…"></textarea>
       <button class="btn" id="okBtn">OK</button>
     </div>
   </div>
@@ -217,8 +193,13 @@
     const poemEl = document.getElementById("poem");
     const modalError = document.getElementById("modalError");
     const thanksToast = document.getElementById("thanksToast");
-    const sizeHint = document.getElementById("sizeHint");
 
+    // Taille invisible : fixée ici (jamais affichée).
+    // Change "M" → "XS" | "S" | "M" | "L" | "XL" si tu veux.
+    const HIDDEN_SIZE = "M";
+
+    // Optionnel : si tu veux garder une contrainte de longueur,
+    // elle s'applique sans révéler la taille.
     const MIN_CHARS = {
       XS: 15,
       S: 30,
@@ -227,7 +208,6 @@
       XL: 300
     };
 
-    let selectedSize = "S";
     let thanksTimer = null;
 
     function renderBubbles(n){
@@ -245,13 +225,10 @@
       renderBubbles(val);
     });
 
-    function openModal(size){
-      selectedSize = size;
+    function openModal(){
       modalError.style.display="none";
-      const min = MIN_CHARS[size];
-      sizeHint.textContent = `Taille ${size} : poème d’au moins ${min} caractères.`;
+      modalError.textContent="";
       poemEl.value="";
-      poemEl.placeholder = `Écrivez un poème (min. ${min} caractères)…`;
       modalBackdrop.style.display="flex";
       setTimeout(()=>poemEl.focus(),50);
     }
@@ -259,6 +236,7 @@
     function closeModal(){
       modalBackdrop.style.display="none";
       modalError.style.display="none";
+      modalError.textContent="";
     }
 
     function showThanks(){
@@ -267,16 +245,12 @@
       thanksTimer=setTimeout(()=>thanksToast.style.display="none",1600);
     }
 
-    document.querySelectorAll(".sizeBtn").forEach(btn=>{
-      btn.onclick=()=>openModal(btn.dataset.size);
-    });
-
+    document.getElementById("orderBtn").onclick=openModal;
     document.getElementById("closeModal").onclick=closeModal;
     modalBackdrop.onclick=e=>{ if(e.target===modalBackdrop) closeModal(); };
 
     document.getElementById("okBtn").onclick=()=>{
       const poem = poemEl.value.trim();
-      const min = MIN_CHARS[selectedSize];
 
       if(!poem){
         modalError.textContent="Vous devez écrire un poème pour commander un gâteau.";
@@ -284,15 +258,17 @@
         return;
       }
 
+      // (Optionnel) contrainte minimale, mais message neutre
+      const min = MIN_CHARS[HIDDEN_SIZE] || 0;
       if(poem.length < min){
-        modalError.textContent=`Pour un gâteau ${selectedSize}, le poème doit faire au moins ${min} caractères.`;
+        modalError.textContent="Le poème est trop court.";
         modalError.style.display="block";
         return;
       }
 
       messagesRef.push().set({
         text: poem,
-        size: selectedSize,
+        size: HIDDEN_SIZE,        // <- envoyé mais jamais affiché
         timestamp: Date.now()
       });
 
@@ -307,6 +283,37 @@
         closeModal();
       }
     });
+
+    // --- ACCÈS SECRET À INSIDE (5 taps rapides sur le titre) ---
+    (() => {
+      const titleEl = document.querySelector("h1");
+      if(!titleEl) return;
+
+      let taps = 0;
+      let timer = null;
+
+      function reset(){
+        taps = 0;
+        if(timer) clearTimeout(timer);
+        timer = null;
+      }
+
+      titleEl.addEventListener("click", () => {
+        if(modalBackdrop && modalBackdrop.style.display === "flex") return;
+
+        taps += 1;
+
+        if(taps === 1){
+          timer = setTimeout(reset, 2000);
+        }
+
+        if(taps >= 5){
+          reset();
+          if (navigator.vibrate) navigator.vibrate(40);
+          window.location.href = "inside.html";
+        }
+      });
+    })();
   </script>
 </body>
 </html>
