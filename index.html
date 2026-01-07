@@ -1,9 +1,23 @@
+Voici une version **complète** de ton fichier unique `index.html` avec :
+
+* `index.html` = public (commande)
+* `index.html?mode=inside` = atelier, **protégé par PIN**
+* PIN demandé : **5439**
+* Si le PIN est faux → retour au mode public
+* Le PIN n’est **jamais affiché** en clair ailleurs (juste demandé en prompt)
+* DONE décrémente `nbTaches`
+
+> Important : ce PIN côté front n’est pas une vraie sécurité (n’importe qui peut le lire dans le code source), mais ça suffit pour un “petit verrou” d’expo.
+
+Colle tout ça dans `index.html` (remplace tout).
+
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fabrique de Gâteaux — Outside</title>
+  <title>Fabrique de Gâteaux</title>
 
   <style>
     body{
@@ -26,6 +40,8 @@
       margin:0 0 18px 0;
       font-family:"Edwardian Script ITC","Apple Chancery","Snell Roundhand",cursive;
       font-weight: normal;
+      user-select:none;
+      -webkit-user-select:none;
     }
 
     #count{
@@ -63,6 +79,21 @@
     }
 
     .btn:hover{ filter:brightness(1.08); }
+
+    .btn:disabled{
+      opacity:0.55;
+      cursor:not-allowed;
+      filter:none;
+    }
+
+    #hint{
+      margin-top:12px;
+      font-size:18px;
+      color:#004080;
+      max-width:520px;
+      line-height:1.25;
+      min-height:24px;
+    }
 
     /* MODALE */
     #modalBackdrop{
@@ -126,7 +157,7 @@
     }
 
     /* Toast */
-    #thanksToast{
+    #toast{
       position:fixed;
       left:50%;
       top:50%;
@@ -141,6 +172,7 @@
       font-size:42px;
       font-family:"Edwardian Script ITC","Apple Chancery","Snell Roundhand",cursive;
       box-shadow:0 10px 30px rgba(0,0,0,0.22);
+      white-space:nowrap;
     }
   </style>
 
@@ -154,9 +186,10 @@
   <div id="count">0</div>
   <div id="bubbleContainer"></div>
 
-  <button class="btn" id="orderBtn">Commander un gâteau</button>
+  <button class="btn" id="mainBtn">Commander un gâteau</button>
+  <div id="hint"></div>
 
-  <div id="thanksToast">Merci pour votre commande&nbsp;!</div>
+  <div id="toast">Merci&nbsp;!</div>
 
   <div id="modalBackdrop">
     <div id="modal">
@@ -168,6 +201,34 @@
   </div>
 
   <script>
+    // --- MODE via URL ---
+    const params = new URLSearchParams(window.location.search);
+    const wantsInside = params.get("mode") === "inside";
+
+    // --- PIN (petit verrou) ---
+    const INSIDE_PIN = "5439";
+    function checkPinOrExit(){
+      const storedOk = sessionStorage.getItem("inside_ok") === "1";
+      if(storedOk) return true;
+
+      const entered = prompt("Code PIN :");
+      if(entered === INSIDE_PIN){
+        sessionStorage.setItem("inside_ok", "1");
+        return true;
+      }
+
+      // mauvais pin ou annulation -> retour mode public
+      sessionStorage.removeItem("inside_ok");
+      params.delete("mode");
+      const base = window.location.pathname;
+      const qs = params.toString();
+      window.location.replace(qs ? `${base}?${qs}` : base);
+      return false;
+    }
+
+    const isInside = wantsInside && checkPinOrExit();
+
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBRY2uVNm9IMFzE6bGwH7cyBaP37_mjeh0",
       authDomain: "fabriquedegateaux.firebaseapp.com",
@@ -186,28 +247,52 @@
 
     const countEl = document.getElementById("count");
     const bubblesEl = document.getElementById("bubbleContainer");
+    const mainBtn = document.getElementById("mainBtn");
+    const hintEl = document.getElementById("hint");
+
     const modalBackdrop = document.getElementById("modalBackdrop");
     const poemEl = document.getElementById("poem");
     const modalError = document.getElementById("modalError");
-    const thanksToast = document.getElementById("thanksToast");
 
-    let thanksTimer = null;
+    const toast = document.getElementById("toast");
+    let toastTimer = null;
+    let currentCount = 0;
+    let isWorking = false;
+
+    // Taille invisible (stockée, jamais affichée)
+    const HIDDEN_SIZE = "M";
+
+    function showToast(text){
+      if(toastTimer) clearTimeout(toastTimer);
+      toast.textContent = text;
+      toast.style.display = "flex";
+      toastTimer = setTimeout(()=> toast.style.display="none", 1400);
+    }
 
     function renderBubbles(n){
-      bubblesEl.innerHTML="";
+      bubblesEl.innerHTML = "";
       for(let i=0;i<n;i++){
-        const b=document.createElement("div");
-        b.className="bubble";
+        const b = document.createElement("div");
+        b.className = "bubble";
         bubblesEl.appendChild(b);
       }
     }
 
+    // Live count + bulles
     countRef.on("value", snap=>{
-      const val=snap.val()||0;
-      countEl.textContent=val;
-      renderBubbles(val);
+      const val = snap.val();
+      currentCount = (typeof val === "number" && isFinite(val)) ? val : 0;
+      if(currentCount < 0) currentCount = 0;
+
+      countEl.textContent = currentCount;
+      renderBubbles(currentCount);
+
+      if(isInside){
+        mainBtn.disabled = isWorking || currentCount <= 0;
+      }
     });
 
+    // --- PUBLIC MODE: commander ---
     function openModal(){
       modalError.style.display="none";
       modalError.textContent="";
@@ -222,113 +307,124 @@
       modalError.textContent="";
     }
 
-    function showThanks(){
-      if(thanksTimer) clearTimeout(thanksTimer);
-      thanksToast.style.display="flex";
-      thanksTimer=setTimeout(()=>thanksToast.style.display="none",1600);
+    // --- INSIDE MODE: DONE ---
+    function setBusy(busy){
+      isWorking = busy;
+      if(isInside){
+        mainBtn.disabled = busy || currentCount <= 0;
+      }
     }
 
-    // Comptage de mots robuste (retours ligne + espaces insécables)
-    function countWords(text){
-      if(!text) return 0;
+    function doDone(){
+      if(isWorking) return;
+      if(currentCount <= 0) return;
 
-      const normalized = text
-        .replace(/\u00A0/g, " ")   // espaces insécables
-        .replace(/\n/g, " ")       // retours ligne
-        .replace(/\s+/g, " ")      // espaces multiples
-        .trim();
+      setBusy(true);
 
-      if(!normalized) return 0;
-      return normalized.split(" ").length;
+      countRef.transaction(cur => {
+        const n = (typeof cur === "number" && isFinite(cur)) ? cur : 0;
+        return Math.max(0, n - 1);
+      }, (error, committed) => {
+        setBusy(false);
+        if(error){
+          console.error(error);
+          showToast("Erreur…");
+          return;
+        }
+        if(committed){
+          showToast("Gâteau réalisé !");
+        }
+      });
     }
 
-    // Taille fantôme basée sur le nombre de mots (1 → 150)
-    function sizeFromWords(words){
-      if(words >= 120) return "XL";
-      if(words >= 80)  return "L";
-      if(words >= 45)  return "M";
-      if(words >= 15)  return "S";
-      return "XS";
-    }
+    // --- Setup UI depending on mode ---
+    if(isInside){
+      document.title = "Fabrique de Gâteaux — Inside";
+      mainBtn.textContent = "DONE";
+      hintEl.textContent = "Appuyez sur DONE quand un gâteau est terminé. (Espace = DONE)";
+      toast.textContent = "Gâteau réalisé !";
 
-    document.getElementById("orderBtn").onclick=openModal;
-    document.getElementById("closeModal").onclick=closeModal;
-    modalBackdrop.onclick=e=>{ if(e.target===modalBackdrop) closeModal(); };
+      mainBtn.addEventListener("click", doDone);
 
-    document.getElementById("okBtn").onclick=()=>{
-      // Normalise un peu (espaces insécables), mais on garde les retours à la ligne dans le texte stocké
-      const poem = (poemEl.value || "").replace(/\u00A0/g, " ").trim();
-
-      if(!poem){
-        modalError.textContent="Vous devez écrire un poème pour commander un gâteau.";
-        modalError.style.display="block";
-        return;
-      }
-
-      const words = countWords(poem);
-
-      // limites demandées : min 1 mot, max 150 mots
-      if(words < 1){
-        modalError.textContent="Vous devez écrire au moins 1 mot.";
-        modalError.style.display="block";
-        return;
-      }
-
-      if(words > 150){
-        modalError.textContent="Le poème est trop long (max. 150 mots).";
-        modalError.style.display="block";
-        return;
-      }
-
-      const size = sizeFromWords(words); // <- calcul invisible
-
-      messagesRef.push().set({
-        text: poem,
-        words: words,
-        size: size,          // <- stocké mais jamais affiché
-        timestamp: Date.now()
+      document.addEventListener("keydown", (e) => {
+        if(e.code === "Space"){
+          e.preventDefault();
+          if(!mainBtn.disabled) doDone();
+        }
       });
 
-      countRef.transaction(v=>(v||0)+1);
+      // En mode inside, on garde la modale fermée
+      modalBackdrop.style.display = "none";
+    } else {
+      document.title = "Fabrique de Gâteaux — Outside";
+      mainBtn.textContent = "Commander un gâteau";
+      hintEl.textContent = "";
+      toast.textContent = "Merci !";
 
-      closeModal();
-      showThanks();
-    };
+      mainBtn.addEventListener("click", openModal);
 
-    document.addEventListener("keydown",e=>{
-      if(e.key==="Escape" && modalBackdrop.style.display==="flex"){
+      document.getElementById("closeModal").onclick = closeModal;
+      modalBackdrop.onclick = e => { if(e.target === modalBackdrop) closeModal(); };
+
+      document.getElementById("okBtn").onclick = () => {
+        const poem = (poemEl.value || "").replace(/\u00A0/g, " ").trim();
+
+        if(!poem){
+          modalError.textContent="Vous devez écrire un poème pour commander un gâteau.";
+          modalError.style.display="block";
+          return;
+        }
+
+        messagesRef.push().set({
+          text: poem,
+          size: HIDDEN_SIZE,   // <- envoyé mais jamais affiché
+          timestamp: Date.now()
+        });
+
+        countRef.transaction(v => (v || 0) + 1);
+
         closeModal();
-      }
-    });
+        showToast("Merci pour votre commande !");
+      };
 
-    // --- ACCÈS SECRET À INSIDE (5 taps rapides sur le titre) ---
-    (() => {
-      const titleEl = document.querySelector("h1");
-      if(!titleEl) return;
-
-      let taps = 0;
-      let timer = null;
-
-      function reset(){
-        taps = 0;
-        if(timer) clearTimeout(timer);
-        timer = null;
-      }
-
-      titleEl.addEventListener("click", () => {
-        if(modalBackdrop && modalBackdrop.style.display === "flex") return;
-
-        taps += 1;
-        if(taps === 1){
-          timer = setTimeout(reset, 2000);
-        }
-        if(taps >= 5){
-          reset();
-          if (navigator.vibrate) navigator.vibrate(40);
-          window.location.href = "inside.html";
+      document.addEventListener("keydown", e => {
+        if(e.key === "Escape" && modalBackdrop.style.display === "flex"){
+          closeModal();
         }
       });
-    })();
+
+      // Accès secret optionnel : 5 taps -> ouvre le mode inside (demande PIN)
+      (() => {
+        const titleEl = document.querySelector("h1");
+        if(!titleEl) return;
+
+        let taps = 0;
+        let timer = null;
+
+        function reset(){
+          taps = 0;
+          if(timer) clearTimeout(timer);
+          timer = null;
+        }
+
+        titleEl.addEventListener("click", () => {
+          if(modalBackdrop && modalBackdrop.style.display === "flex") return;
+
+          taps += 1;
+          if(taps === 1){
+            timer = setTimeout(reset, 2000);
+          }
+
+          if(taps >= 5){
+            reset();
+            if (navigator.vibrate) navigator.vibrate(40);
+            const base = window.location.pathname;
+            window.location.href = `${base}?mode=inside`;
+          }
+        });
+      })();
+    }
   </script>
 </body>
 </html>
+```
