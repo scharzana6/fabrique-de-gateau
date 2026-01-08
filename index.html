@@ -245,9 +245,6 @@
     let currentCount = 0;
     let isWorking = false;
 
-    // Taille invisible (stockée, jamais affichée)
-    const HIDDEN_SIZE = "M";
-
     function showToast(text){
       if(toastTimer) clearTimeout(toastTimer);
       toast.textContent = text;
@@ -262,6 +259,27 @@
         b.className = "bubble";
         bubblesEl.appendChild(b);
       }
+    }
+
+    // ✅ Comptage de mots robuste (retours ligne + espaces insécables)
+    function countWords(text){
+      const normalized = (text || "")
+        .replace(/\u00A0/g, " ")
+        .replace(/\n/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if(!normalized) return 0;
+      return normalized.split(" ").length;
+    }
+
+    // ✅ Taille calculée depuis words (XS/S/M/L/XL)
+    function sizeFromWords(words){
+      if(words >= 120) return "XL";
+      if(words >= 80)  return "L";
+      if(words >= 45)  return "M";
+      if(words >= 15)  return "S";
+      return "XS";
     }
 
     // Live count + bulles
@@ -339,7 +357,6 @@
         }
       });
 
-      // En mode inside, on garde la modale fermée
       modalBackdrop.style.display = "none";
     } else {
       document.title = "Fabrique de Gâteaux — Outside";
@@ -361,9 +378,26 @@
           return;
         }
 
+        const words = countWords(poem);
+
+        if(words < 1){
+          modalError.textContent = "Vous devez écrire au moins 1 mot.";
+          modalError.style.display = "block";
+          return;
+        }
+
+        if(words > 150){
+          modalError.textContent = "Le poème est trop long (max. 150 mots).";
+          modalError.style.display = "block";
+          return;
+        }
+
+        const size = sizeFromWords(words);
+
         messagesRef.push().set({
           text: poem,
-          size: HIDDEN_SIZE,   // <- envoyé mais jamais affiché
+          words: words,
+          size: size,
           timestamp: Date.now()
         });
 
@@ -379,7 +413,7 @@
         }
       });
 
-      // Accès secret optionnel : 5 taps -> ouvre le mode inside (demande PIN)
+      // Accès secret : 5 taps -> ouvre le mode inside (demande PIN)
       (() => {
         const titleEl = document.querySelector("h1");
         if(!titleEl) return;
